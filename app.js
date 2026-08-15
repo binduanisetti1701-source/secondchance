@@ -1,60 +1,68 @@
 const express = require("express");
-const cors = require("cors");
-
-const secondChanceItemsRoutes =
-    require("./routes/secondChanceItemsRoutes");
-
-const searchRoutes =
-    require("./routes/searchRoutes");
-
-const authRoutes =
-    require("./routes/authRoutes");
 
 const app = express();
 
-// Middleware
-app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve frontend files
 app.use(express.static("public"));
 
+// Import routes
+const secondChanceItemsRoutes = require("./routes/secondChanceItemsRoutes");
+const searchRoutes = require("./routes/searchRoutes");
+const authRoutes = require("./routes/authRoutes");
+
 // API routes
-app.use(secondChanceItemsRoutes);
-app.use(searchRoutes);
-app.use(authRoutes);
+app.use("/api/secondchance", secondChanceItemsRoutes);
+app.use("/api/secondchance", searchRoutes);
+app.use("/api/auth", authRoutes);
 
-// Landing page
+// Search endpoint required for Task 7
+app.get("/api/secondchance/search", async (req, res) => {
+    try {
+        const { connectToDatabase } = require("./db");
+
+        const db = await connectToDatabase();
+
+        const category = req.query.category;
+
+        if (!category) {
+            return res.status(400).json({
+                error: "Category is required"
+            });
+        }
+
+        const items = await db.collection("items")
+            .find({
+                category: {
+                    $regex: category,
+                    $options: "i"
+                }
+            })
+            .toArray();
+
+        res.json(items);
+
+    } catch (error) {
+        console.error(error);
+
+        res.status(500).json({
+            error: "Search failed"
+        });
+    }
+});
+
+// Home page
 app.get("/", (req, res) => {
-    res.sendFile("index.html", {
-        root: "public"
-    });
+    res.sendFile(__dirname + "/public/index.html");
 });
 
-// Health check
-app.get("/health", (req, res) => {
-    res.json({
-        status: "success",
-        message: "SecondChance application is running"
-    });
-});
+// Start server
+const PORT = process.env.PORT || 3000;
 
-// 404 handler
-app.use((req, res) => {
-    res.status(404).json({
-        message: "Route not found"
-    });
-});
-
-// Error handler
-app.use((err, req, res, next) => {
-    console.error(err);
-
-    res.status(500).json({
-        message: "Internal server error",
-        error: err.message
-    });
+app.listen(PORT, () => {
+    console.log(SecondChance server running on port ${PORT});
 });
 
 module.exports = app;
