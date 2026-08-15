@@ -1,27 +1,37 @@
 const express = require("express");
-const router = express.Router();
-
 const { connectToDatabase } = require("../db");
 
-router.get("/api/secondchance/search", async (req, res) => {
-    try {
-        const category = req.query.category;
+const router = express.Router();
 
+// Search items by category
+router.get("/search", async (req, res) => {
+    try {
         const db = await connectToDatabase();
 
-        const filter = category
-            ? { category: category }
-            : {};
+        const category = req.query.category;
 
-        const items = await db
-            .collection("items")
-            .find(filter)
+        if (!category) {
+            return res.status(400).json({
+                error: "Category is required"
+            });
+        }
+
+        const items = await db.collection("items")
+            .find({
+                category: {
+                    $regex: category,
+                    $options: "i"
+                }
+            })
             .toArray();
 
         res.json(items);
+
     } catch (error) {
+        console.error(error);
+
         res.status(500).json({
-            error: error.message
+            error: "Failed to search items"
         });
     }
 });
