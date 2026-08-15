@@ -1,115 +1,133 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
+const { connectToDatabase } = require("../db");
 
 const router = express.Router();
 
-const users = [];
-
-router.post("/api/auth/register", async (req, res) => {
+// REGISTER
+router.post("/register", async (req, res) => {
     try {
-        const { username, password, email } = req.body;
+        const db = await connectToDatabase();
 
-        if (!username || !password) {
+        const { name, email, password } = req.body;
+
+        if (!name || !email || !password) {
             return res.status(400).json({
-                message: "Username and password are required"
+                error: "Name, email and password are required"
             });
         }
 
-        const existingUser = users.find(
-            user => user.username === username
-        );
+        const existingUser = await db.collection("users").findOne({ email });
 
         if (existingUser) {
             return res.status(409).json({
-                message: "User already exists"
+                error: "User already exists"
             });
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        const user = {
-            id: users.length + 1,
-            username,
-            email: email || "",
-            password: hashedPassword
-        };
-
-        users.push(user);
+        const result = await db.collection("users").insertOne({
+            name,
+            email,
+            password: hashedPassword,
+            createdAt: new Date()
+        });
 
         res.status(201).json({
             message: "User registered successfully",
+            userId: result.insertedId
+        });
+
+    } catch (error) {
+        console.error(error);
+
+        res.status(500).json({
+            error: "Registration failed"
+        });
+    }
+});
+
+// LOGIN
+router.post("/login", async (req, res) => {
+    try {
+        const db = await connectToDatabase();
+
+        const { email, password } = req.body;
+
+        const user = await db.collection("users").findOne({ email });
+
+        if (!user) {
+            return res.status(401).json({
+                error: "Invalid email or password"
+            });
+        }
+
+        const validPassword = await bcrypt.compare(
+            password,
+            user.password
+        );
+
+        if (!validPassword) {
+            return res.status(401).json({
+                error: "Invalid email or password"
+            });
+        }
+
+        res.json({
+            message: "Login successful",
             user: {
-                id: user.id,
-                username: user.username,
+                id: user._id,
+                name: user.name,
                 email: user.email
             }
         });
+
     } catch (error) {
+        console.error(error);
+
         res.status(500).json({
-            error: error.message
+            error: "Login failed"
         });
     }
 });
 
-router.post("/api/auth/login", async (req, res) => {
-    const { username, password } = req.body;
+// UPDATE USER INFORMATION
+router.put("/update/:id", async (req, res) => {
+    try {
+        const { ObjectId } = require("mongodb");
+        const db = await connectToDatabase();
 
-    const user = users.find(
-        item => item.username === username
-    );
+        const { name, email } = req.body;
 
-    if (!user) {
-        return res.status(401).json({
-            message: "Invalid username or password"
-        });
-    }
+        const result = await db.collection("users").updateOne(
+            { _id: new ObjectId(req.params.id) },
+            {
+                $set: {
+                    ...(name && { name }),
+                    ...(email && { email }),
+                    updatedAt: new Date()
+                }
+            }
+        );
 
-    const validPassword = await bcrypt.compare(
-        password,
-        user.password
-    );
-
-    if (!validPassword) {
-        return res.status(401).json({
-            message: "Invalid username or password"
-        });
-    }
-
-    res.json({
-        message: "Login successful",
-        user: {
-            id: user.id,
-            username: user.username,
-            email: user.email
+        if (result.matchedCount === 0) {
+            return res.status(404).json({
+                error: "User not found"
+            });
         }
-    });
-});
 
-router.put("/api/auth/users/:id", (req, res) => {
-    const userId = Number(req.params.id);
+        res.json({
+            message: "User information updated successfully"
+        });
 
-    const user = users.find(
-        item => item.id === userId
-    );
+    } catch (error) {
+        console.error(error);
 
-    if (!user) {
-        return res.status(404).json({
-            message: "User not found"
+        res.status(500).json({
+            error: "Update failed"
         });
     }
-
-    if (req.body.email) {
-        user.email = req.body.email;
-    }
-
-    res.json({
-        message: "User information updated successfully",
-        user: {
-            id: user.id,
-            username: user.username,
-            email: user.email
-        }
-    });
 });
 
 module.exports = router;
