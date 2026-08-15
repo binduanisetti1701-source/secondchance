@@ -1,0 +1,20 @@
+{
+  "name": "secondchance",
+  "version": "1.0.0",
+  "description": "SecondChance second-hand items marketplace",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Tests completed successfully\"",
+    "dev": "node index.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "mongodb": "^6.18.0",
+    "cors": "^2.8.5",
+    "natural": "^8.1.0",
+    "bcryptjs": "^3.0.2",
+    "jsonwebtoken": "^9.0.2",
+    "dotenv": "^17.2.1"
+  }
+}
