@@ -6,6 +6,7 @@ const client = new MongoClient(uri);
 
 async function connectToDatabase() {
     await client.connect();
+
     console.log("Connected to MongoDB");
 
     return client.db("secondchance");
